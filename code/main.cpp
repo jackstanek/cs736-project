@@ -3,6 +3,7 @@
 #include <sstream>
 #include <string>
 #include "lib/csv.hpp"
+#include "lib/gcache/ghost_kv_cache.h"
 
 struct TraceReq {
     int timeStamp;
@@ -27,6 +28,8 @@ int main() {
 
     csv::CSVReader reader(file);
 
+    gcache::SampledGhostKvCache<> ghost(1024*16, 1024*16, 1024*256);
+
     for (csv::CSVRow& row : reader) {
         if (row[0].is_int() && row[2].is_int() && row[3].is_int() && row[4].is_int()) {
             TraceReq req;
@@ -38,11 +41,18 @@ int main() {
             req.valSize = row[3].get<int>();
             req.client = row[4].get<int>();
 
-            printTraceReq(req);
+            // printTraceReq(req);
+
+            ghost.access(req.key, req.keySize + req.valSize);
         }
     }
 
     file.close();
+
+    auto curve = ghost.get_cache_stat_curve();
+    for (auto& point : curve) {
+        std:: cout << std::get<0>(point) << " " << std::get<1>(point) << std::get<2>(point) << std::endl;
+    }
 
     return 0;
 }
