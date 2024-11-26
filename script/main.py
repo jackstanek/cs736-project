@@ -10,7 +10,7 @@ def parse_line(line):
         "key_size": int(parts[2]),
         "value_size": int(parts[3]),
         "client": parts[4],
-        "operation": parts[5]
+        "operation": parts[6]
     }
     return request
 
