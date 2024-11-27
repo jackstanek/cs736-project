@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <format>
 #include "lib/csv.hpp"
 #include "lib/gcache/ghost_kv_cache.h"
 
@@ -23,12 +24,22 @@ void printTraceReq(TraceReq trace) {
                  trace.operation << " : " << std::endl;
 }
 
+void saveMRCToFile(std::vector<std::tuple<uint32_t, uint32_t, gcache::CacheStat>> curve, std::string name) {
+    std::ofstream file(std::format("mrc/{}.txt", name));
+
+    for (auto& point : curve) {
+        file << std::get<0>(point) << " " << std::get<1>(point) << std::get<2>(point) << std::endl;
+    }
+
+    file.close();
+}
+
 int main() {
-    std::ifstream file("./data/cluster015");
+    std::ifstream file("./data/cluster012");
 
     csv::CSVReader reader(file);
 
-    gcache::SampledGhostKvCache<> ghost(1024*16, 1024*16, 1024*256);
+    gcache::SampledGhostKvCache<5> ghost(1024*64, 1024*64, 1024*1024);
 
     for (csv::CSVRow& row : reader) {
         if (row[0].is_int() && row[2].is_int() && row[3].is_int() && row[4].is_int()) {
@@ -50,9 +61,8 @@ int main() {
     file.close();
 
     auto curve = ghost.get_cache_stat_curve();
-    for (auto& point : curve) {
-        std:: cout << std::get<0>(point) << " " << std::get<1>(point) << std::get<2>(point) << std::endl;
-    }
+    
+    saveMRCToFile(curve, "mrc");
 
     return 0;
 }
