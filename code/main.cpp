@@ -1,11 +1,10 @@
 #include <cstdint>
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <format>
 #include <csv.hpp>
+#include <fstream>
 #include <gcache/ghost_kv_cache.h>
+#include <iostream>
+#include <ostream>
+#include <string>
 
 struct TraceReq {
     int timeStamp;
@@ -14,47 +13,50 @@ struct TraceReq {
     int valSize;
     int client;
     std::string operation;
+
+    static TraceReq fromRow(const csv::CSVRow& row) {
+        return TraceReq(row[0].get<int>(), row[1].get<std::string>(),
+                        row[2].get<int>(), row[3].get<int>(), row[4].get<int>(),
+                        row[5].get<std::string>());
+    };
+
+    void printTraceReq() const {
+        std::cout << this->timeStamp << " : " << this->key << " : "
+                  << this->keySize << " : " << this->valSize << " : "
+                  << this->client << " : " << this->operation << " : "
+                  << std::endl;
+    }
 };
 
-void printTraceReq(TraceReq trace) {
-    std::cout << trace.timeStamp << " : " <<
-                 trace.key << " : " <<
-                 trace.keySize << " : " <<
-                 trace.valSize << " : " <<
-                 trace.client << " : " <<
-                 trace.operation << " : " << std::endl;
-}
-
-void saveMRCToFile(std::vector<std::tuple<uint32_t, uint32_t, gcache::CacheStat>> curve, std::string name) {
-    std::ofstream file(std::format("mrc/{}.txt", name));
-
+void writeMRCOutput(
+    const std::vector<std::tuple<uint32_t, uint32_t, gcache::CacheStat>>&
+        curve) {
     for (auto& point : curve) {
-        file << std::get<0>(point) << " " << std::get<1>(point) << std::get<2>(point) << std::endl;
+        std::cout << std::get<0>(point) << " " << std::get<1>(point)
+                  << std::get<2>(point) << std::endl;
     }
-
-    file.close();
 }
 
-int main() {
-    std::ifstream file("./data/cluster012");
+void usage(const std::string& execName) {
+    std::cout << "usage: " << execName << " <trace>" << std::endl;
+    exit(1);
+}
+
+int main(int argc, char* argv[]) {
+    if (argc != 2) {
+        usage(argv[0]);
+    }
+    std::string tracePath(argv[1]);
+    std::ifstream file(tracePath);
 
     csv::CSVReader reader(file);
 
-    gcache::SampledGhostKvCache<5> ghost(1024*64, 1024*64, 1024*1024);
+    gcache::SampledGhostKvCache<5> ghost(1024 * 64, 1024 * 64, 1024 * 1024);
 
     for (csv::CSVRow& row : reader) {
-        if (row[0].is_int() && row[2].is_int() && row[3].is_int() && row[4].is_int()) {
-            TraceReq req;
-            req.key = row[1].get<std::string>();
-            req.operation = row[5].get<std::string>();
-
-            req.timeStamp = row[0].get<int>();
-            req.keySize = row[2].get<int>();
-            req.valSize = row[3].get<int>();
-            req.client = row[4].get<int>();
-
-            // printTraceReq(req);
-
+        if (row[0].is_int() && row[2].is_int() && row[3].is_int() &&
+            row[4].is_int()) {
+            auto req = TraceReq::fromRow(row);
             ghost.access(req.key, req.keySize + req.valSize);
         }
     }
@@ -63,7 +65,7 @@ int main() {
 
     auto curve = ghost.get_cache_stat_curve();
 
-    saveMRCToFile(curve, "mrc");
+    writeMRCOutput(curve);
 
     return 0;
 }
