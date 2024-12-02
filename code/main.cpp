@@ -4,6 +4,8 @@
 #include <sstream>
 #include <string>
 #include <format>
+#include <string> 
+#include <memory>
 #include <csv.hpp>
 #include <gcache/ghost_kv_cache.h>
 
@@ -29,18 +31,21 @@ void saveMRCToFile(std::vector<std::tuple<uint32_t, uint32_t, gcache::CacheStat>
     std::ofstream file(std::format("mrc/{}.txt", name));
 
     for (auto& point : curve) {
-        file << std::get<0>(point) << " " << std::get<1>(point) << std::get<2>(point) << std::endl;
+        file << std::get<2>(point).get_hit_rate() << std::get<0>(point) << " " << std::get<1>(point) << std::get<2>(point) << std::endl;
     }
 
     file.close();
 }
 
+void initializeNewClientInGhost(int client, std::unordered_map<int, std::unique_ptr<gcache::SampledGhostKvCache<>>>& clientsGhostMap) {
+    clientsGhostMap[client] = std::make_unique<gcache::SampledGhostKvCache<5>>(1024*64,1024*64,1024*1024);
+}
+
 int main() {
     std::ifstream file("./data/cluster012");
-
     csv::CSVReader reader(file);
 
-    gcache::SampledGhostKvCache<5> ghost(1024*64, 1024*64, 1024*1024);
+    std::unordered_map<int, std::unique_ptr<gcache::SampledGhostKvCache<>>> clientsGhostMap;
 
     for (csv::CSVRow& row : reader) {
         if (row[0].is_int() && row[2].is_int() && row[3].is_int() && row[4].is_int()) {
@@ -53,17 +58,22 @@ int main() {
             req.valSize = row[3].get<int>();
             req.client = row[4].get<int>();
 
-            // printTraceReq(req);
+            printTraceReq(req);
 
-            ghost.access(req.key, req.keySize + req.valSize);
+            if(clientsGhostMap.find(req.client) == clientsGhostMap.end()) {
+                initializeNewClientInGhost(req.client, clientsGhostMap);
+            }
+
+            clientsGhostMap[req.client]->access(req.key, req.keySize + req.valSize);
         }
     }
 
     file.close();
 
-    auto curve = ghost.get_cache_stat_curve();
-
-    saveMRCToFile(curve, "mrc");
+    for (auto& kv : clientsGhostMap) {
+        auto curve = kv.second->get_cache_stat_curve();
+        saveMRCToFile(curve, std::to_string(kv.first));
+    }
 
     return 0;
 }
