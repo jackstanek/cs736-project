@@ -3,7 +3,7 @@
 
   # Flake inputs
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
   };
 
   # Flake outputs
@@ -25,7 +25,7 @@
     {
       # Development environment output
       devShells = forAllSystems ({ pkgs }: {
-        default = pkgs.mkShell {
+        default = (pkgs.mkShell.override { stdenv = pkgs.llvmPackages_19.stdenv; }) {
           # The Nix packages provided in the environment
           packages = with pkgs; [clang_18 cmake];
         };
@@ -34,12 +34,11 @@
         default =
           let
             binName = "mtcache";
-            cppDependencies = with pkgs; [clang_18 cmake];
           in
-          pkgs.stdenv.mkDerivation {
+          pkgs.llvmPackages_19.stdenv.mkDerivation {
             name = "mtcache";
             src = self;
-            nativeBuildInputs = cppDependencies;
+            nativeBuildInputs = with pkgs; [clang_18 cmake];
             installPhase = ''
               mkdir -p $out/bin
               cp bin/${binName} $out/bin/
