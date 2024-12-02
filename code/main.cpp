@@ -1,10 +1,11 @@
+#include <cstdint>
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <format>
-#include "lib/csv.hpp"
-#include "lib/gcache/ghost_kv_cache.h"
+#include <csv.hpp>
+#include <gcache/ghost_kv_cache.h>
 
 struct TraceReq {
     int timeStamp;
@@ -46,7 +47,7 @@ int main() {
             TraceReq req;
             req.key = row[1].get<std::string>();
             req.operation = row[5].get<std::string>();
-                
+
             req.timeStamp = row[0].get<int>();
             req.keySize = row[2].get<int>();
             req.valSize = row[3].get<int>();
@@ -61,7 +62,7 @@ int main() {
     file.close();
 
     auto curve = ghost.get_cache_stat_curve();
-    
+
     saveMRCToFile(curve, "mrc");
 
     return 0;

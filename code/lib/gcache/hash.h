@@ -9,10 +9,10 @@
 #define crc32_u32 _mm_crc32_u32
 #define crc32_u64 _mm_crc32_u64
 #elif defined(__ARM_FEATURE_CRC32)
-#define crc32_u8 __builtin_aarch64_crc32cb
-#define crc32_u16 __builtin_aarch64_crc32ch
-#define crc32_u32 __builtin_aarch64_crc32cw
-#define crc32_u64 __builtin_aarch64_crc32cx
+#define crc32_u8 __builtin_arm_crc32cb
+#define crc32_u16 __builtin_arm_crc32ch
+#define crc32_u32 __builtin_arm_crc32cw
+#define crc32_u64 __builtin_arm_crc32cx
 #else
 #error "Unsupported architecture"
 #endif
