@@ -4,6 +4,8 @@
 
 #include "csv.hpp"
 
+namespace mtcache {
+
 struct TraceReq {
     uint64_t timeStamp;
     std::string key;
@@ -17,3 +19,4 @@ struct TraceReq {
     static TraceReq fromTwitterLine(csv::CSVRow&);
     static TraceReq fromFacebookLine(csv::CSVRow&);
 };
+} // namespace mtcache

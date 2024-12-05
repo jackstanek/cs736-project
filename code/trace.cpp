@@ -5,6 +5,8 @@
 #include "csv.hpp"
 #include "trace.hpp"
 
+namespace mtcache {
+
 /// Annotate exception with which field was being parsed
 template <typename T> T get(csv::CSVField field, const std::string field_name) {
     try {
@@ -17,9 +19,9 @@ template <typename T> T get(csv::CSVField field, const std::string field_name) {
 }
 
 void TraceReq::printTraceReq() {
-    std::cout << this->timeStamp << " : " << this->key << " : " << this->keySize
-              << " : " << this->valSize << " : " << this->client << " : "
-              << this->operation << " : " << std::endl;
+    std::cout << "(client: " << this->client << ") " << this->timeStamp << " : "
+              << this->key << " : " << this->keySize << " : " << this->valSize
+              << " : " << " : " << this->operation << " : " << std::endl;
 }
 
 TraceReq TraceReq::fromTwitterLine(csv::CSVRow& row) {
@@ -34,3 +36,4 @@ TraceReq TraceReq::fromFacebookLine(csv::CSVRow& row) {
         get<uint64_t>(row[2], "keySize"), get<uint64_t>(row[5], "valSize"),
         get<uint64_t>(row[8], "client"), get<std::string>(row[3], "operation"));
 }
+} // namespace mtcache

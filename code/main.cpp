@@ -1,15 +1,20 @@
+#include <cstddef>
 #include <cstdint>
 #include <csv.hpp>
 #include <format>
 #include <fstream>
-#include <functional>
 #include <gcache/ghost_kv_cache.h>
 #include <iostream>
 #include <memory>
-#include <stdexcept>
 #include <string>
+#include <utility>
 
 #include "trace.hpp"
+
+using mtcache::TraceReq;
+using GhostKvCache = gcache::SampledGhostKvCache<0>;
+using ClientsGhostMap =
+    std::unordered_map<uint64_t, std::unique_ptr<GhostKvCache>>;
 
 void saveMRCToFile(
     std::vector<std::tuple<uint32_t, uint32_t, gcache::CacheStat>> curve,
@@ -25,11 +30,12 @@ void saveMRCToFile(
 }
 
 void initializeNewClientInGhost(
-    int client,
-    std::unordered_map<uint64_t, std::unique_ptr<gcache::SampledGhostKvCache<>>>&
+    uint64_t client,
+    ClientsGhostMap&
         clientsGhostMap) {
-    clientsGhostMap[client] = std::make_unique<gcache::SampledGhostKvCache<5>>(
-        1024 * 64, 1024 * 64, 1024 * 1024);
+    clientsGhostMap[client] =
+        std::make_unique<GhostKvCache>(1024 * 64, 1024 * 64, 1024 * 1024);
+    assert(clientsGhostMap[client] != nullptr);
 }
 
 void usage(std::string& execname) {
@@ -58,8 +64,7 @@ int main(int argc, char* argv[]) {
     std::ifstream file(argv[2]);
     csv::CSVReader reader(file);
 
-    std::unordered_map<uint64_t, std::unique_ptr<gcache::SampledGhostKvCache<>>>
-        clientsGhostMap;
+    ClientsGhostMap clientsGhostMap;
 
     int row_number = 1;
     for (csv::CSVRow& row : reader) {
@@ -70,13 +75,13 @@ int main(int argc, char* argv[]) {
             if (clientsGhostMap.find(req.client) == clientsGhostMap.end()) {
                 initializeNewClientInGhost(req.client, clientsGhostMap);
             }
+
+            assert(clientsGhostMap[req.client] != nullptr);
             clientsGhostMap[req.client]->access(req.key,
                                                 req.keySize + req.valSize);
-
         } catch (const std::runtime_error& e) {
-            std::cerr << "Skipped line " << row_number
-                      << " in trace (" << e.what()
-                      << ")" << std::endl;
+            std::cerr << "Skipped line " << row_number << " in trace ("
+                      << e.what() << ")" << std::endl;
         }
 
         row_number++;
@@ -84,10 +89,13 @@ int main(int argc, char* argv[]) {
 
     file.close();
 
+    std::cout << "processed " << row_number << " requests";
+
     for (auto& kv : clientsGhostMap) {
         auto curve = kv.second->get_cache_stat_curve();
         if (curve.empty()) {
-            std::cout << "client \"" << kv.first << "\" is empty" << std::endl;
+            // std::cout << "client \"" << kv.first << "\" is empty" <<
+            // std::endl;
             continue;
         }
         saveMRCToFile(curve, std::to_string(kv.first));
