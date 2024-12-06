@@ -27,7 +27,7 @@
       devShells = forAllSystems ({ pkgs }: {
         default = (pkgs.mkShell.override { stdenv = pkgs.llvmPackages_19.stdenv; }) {
           # The Nix packages provided in the environment
-          packages = with pkgs; [clang_19 cmake lldb];
+          packages = with pkgs; [clang_19 cmake lldb awscli];
         };
       });
       packages = forAllSystems ({ pkgs }: {
