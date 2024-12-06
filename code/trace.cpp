@@ -25,15 +25,16 @@ void TraceReq::printTraceReq() {
 }
 
 TraceReq TraceReq::fromTwitterLine(csv::CSVRow& row) {
-    return TraceReq(row[0].get<int>(), row[1].get<std::string>(),
-                    row[2].get<int>(), row[3].get<int>(), row[4].get<int>(),
-                    row[5].get<std::string>());
+    return TraceReq(
+        get<uint64_t>(row[0], "timeStamp"), get<std::string>(row[1], "key"),
+        get<uint32_t>(row[2], "keySize"), get<uint32_t>(row[3], "valSize"),
+        get<uint64_t>(row[4], "client"), get<std::string>(row[5], "operation"));
 }
 
 TraceReq TraceReq::fromFacebookLine(csv::CSVRow& row) {
     return TraceReq(
         get<uint64_t>(row[0], "timeStamp"), get<std::string>(row[1], "key"),
-        get<uint64_t>(row[2], "keySize"), get<uint64_t>(row[5], "valSize"),
+        get<uint32_t>(row[2], "keySize"), get<uint32_t>(row[5], "valSize"),
         get<uint64_t>(row[8], "client"), get<std::string>(row[3], "operation"));
 }
 } // namespace mtcache

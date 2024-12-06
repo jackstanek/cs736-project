@@ -1,6 +1,8 @@
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <csv.hpp>
+#include <filesystem>
 #include <format>
 #include <fstream>
 #include <gcache/ghost_kv_cache.h>
@@ -12,29 +14,26 @@
 #include "trace.hpp"
 
 using mtcache::TraceReq;
-using GhostKvCache = gcache::SampledGhostKvCache<0>;
+using GhostKvCache = gcache::SampledGhostKvCache<1>;
 using ClientsGhostMap =
     std::unordered_map<uint64_t, std::unique_ptr<GhostKvCache>>;
+namespace fs = std::filesystem;
 
 void saveMRCToFile(
     std::vector<std::tuple<uint32_t, uint32_t, gcache::CacheStat>> curve,
-    std::string name) {
-    std::ofstream file(std::format("mrc/{}.txt", name));
+    std::ofstream& outstream) {
 
     for (auto& point : curve) {
-        file << std::get<2>(point).get_hit_rate() << std::get<0>(point) << " "
-             << std::get<1>(point) << std::get<2>(point) << std::endl;
+        outstream << std::get<2>(point).get_hit_rate() << std::get<0>(point)
+                  << " " << std::get<1>(point) << std::get<2>(point)
+                  << std::endl;
     }
-
-    file.close();
 }
 
-void initializeNewClientInGhost(
-    uint64_t client,
-    ClientsGhostMap&
-        clientsGhostMap) {
+void initializeNewClientInGhost(uint64_t client,
+                                ClientsGhostMap& clientsGhostMap) {
     clientsGhostMap[client] =
-        std::make_unique<GhostKvCache>(1024 * 64, 1024 * 64, 1024 * 1024);
+        std::make_unique<GhostKvCache>(64, 64, 1024);
     assert(clientsGhostMap[client] != nullptr);
 }
 
@@ -61,7 +60,14 @@ int main(int argc, char* argv[]) {
     }
 
     // Open trace and setup CSV parser
-    std::ifstream file(argv[2]);
+    std::string trace_path(argv[2]);
+    std::ifstream file(trace_path);
+    if (!file.is_open()) {
+        std::cerr << trace_path
+                  << ": could not open file: " << std::strerror(errno)
+                  << std::endl;
+        exit(1);
+    }
     csv::CSVReader reader(file);
 
     ClientsGhostMap clientsGhostMap;
@@ -91,6 +97,16 @@ int main(int argc, char* argv[]) {
 
     std::cout << "processed " << row_number << " requests";
 
+    const std::string outdirpath("mrc");
+    auto dirstat = fs::status(outdirpath);
+    if (dirstat.type() == fs::file_type::not_found) {
+        fs::create_directory(outdirpath);
+    } else if (dirstat.type() != fs::file_type::directory) {
+        std::cerr << "output directory \"" << outdirpath
+                  << "\" exists but is not a directory";
+        exit(1);
+    }
+
     for (auto& kv : clientsGhostMap) {
         auto curve = kv.second->get_cache_stat_curve();
         if (curve.empty()) {
@@ -98,7 +114,9 @@ int main(int argc, char* argv[]) {
             // std::endl;
             continue;
         }
-        saveMRCToFile(curve, std::to_string(kv.first));
+        std::ofstream outfile(fs::path(outdirpath) /
+                              fs::path(std::to_string(kv.first)));
+        saveMRCToFile(curve, outfile);
     }
 
     return 0;
