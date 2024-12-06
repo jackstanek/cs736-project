@@ -8,6 +8,7 @@
 #include <gcache/ghost_kv_cache.h>
 #include <iostream>
 #include <memory>
+#include <ostream>
 #include <string>
 #include <utility>
 
@@ -76,7 +77,9 @@ int main(int argc, char* argv[]) {
     for (csv::CSVRow& row : reader) {
         try {
             auto req = parser(row);
-            req.printTraceReq();
+            if (!(row_number % 1000000)) {
+                std::cout << "Processed " << row_number << " requests" << std::endl;
+            }
 
             if (clientsGhostMap.find(req.client) == clientsGhostMap.end()) {
                 initializeNewClientInGhost(req.client, clientsGhostMap);
