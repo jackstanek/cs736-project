@@ -21,7 +21,8 @@ def main():
         print(f"{args.mrc}: no such file or directory")
         sys.exit(1)
 
-    plotted = False
+    plotted = 0
+    fig, axs = plt.subplots()
     for path in paths:
         try:
             with open(path) as mrc_file:
@@ -29,9 +30,8 @@ def main():
                 if not mrc:
                     continue
 
-                fig, axs = plt.subplots()
                 mrc.plot(axs)
-                plotted = True
+                plotted += 1
 
         except IsADirectoryError:
             print(f"{path}: unexpected subdirectory in miss rate curve directory")
