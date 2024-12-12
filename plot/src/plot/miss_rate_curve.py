@@ -73,6 +73,11 @@ class MissRateCurve:
         mrs = [pt.stat.miss_count / pt.stat.total_count for pt in self._curve]
         axs.plot(sizes, mrs)
 
-    def mean_error(self):
+    def mean_absolute_error(self, other):
         """Calculate the MEA"""
-        return 5
+        error_sum = 0
+        data_points = 0
+        for (p1, p2) in zip(self._curve, other._curve):
+            error_sum += abs((p1.stat.hit_count / p1.stat.total_count) - (p2.stat.hit_count / p2.stat.total_count))
+            data_points += 1
+        return error_sum / data_points

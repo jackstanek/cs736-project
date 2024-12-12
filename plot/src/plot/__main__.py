@@ -48,12 +48,20 @@ def plot_client_timeline(args, client_files):
     try:
         X = []
         Y = []
+
+        prev_mrc = None
         for path in client_files:
             with open(path) as mrc_file:
                 mrc = MissRateCurve.parse_miss_rate_curve(mrc_file.readlines())
+                if prev_mrc == None:
+                    prev_mrc = mrc
+                    continue
+                mae = mrc.mean_absolute_error(prev_mrc)
+                prev_mrc = mrc
                 ts = int(os.path.basename(path).split("_")[1].split(".")[0])
                 X.append(ts)
-                Y.append(mrc.mean_error())
+                Y.append(mae)
+        X,Y = zip(*sorted(zip(X,Y), key=lambda x: x[0]))
 
         plt.plot(X, Y)
         plt.show()
@@ -89,7 +97,6 @@ def main():
     client_files = get_client_files(args)
     for client in client_files:
         plot_client_timeline(args, client)
-        break
 
 if __name__ == "__main__":
     main()
