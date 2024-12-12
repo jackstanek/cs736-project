@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <iostream>
 #include <string_view>
 
 #include "ghost_cache.h"
@@ -40,6 +41,7 @@ class SampledGhostKvCache {
               AccessMode mode = AccessMode::DEFAULT) {
     // only with certain number of leading zeros is sampled
     if (key_hash >> (32 - SampleShift)) return;
+    std::cout << "key " << key_hash << " (size " << kv_size << ") accessed" << std::endl;
     auto h = ghost_cache.access_impl(key_hash, key_hash, mode);
     h->kv_size = kv_size;
   }

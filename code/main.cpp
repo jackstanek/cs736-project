@@ -3,7 +3,6 @@
 #include <cstring>
 #include <csv.hpp>
 #include <filesystem>
-#include <format>
 #include <fstream>
 #include <gcache/ghost_kv_cache.h>
 #include <iostream>
@@ -15,10 +14,12 @@
 #include "trace.hpp"
 
 using mtcache::TraceReq;
-using GhostKvCache = gcache::SampledGhostKvCache<1>;
+using GhostKvCache = gcache::SampledGhostKvCache<0>;
 using ClientsGhostMap =
     std::unordered_map<uint64_t, std::unique_ptr<GhostKvCache>>;
 namespace fs = std::filesystem;
+
+const uint32_t TICK = 64, MIN_COUNT = 128, MAX_COUNT = 1024;
 
 void saveMRCToFile(
     std::vector<std::tuple<uint32_t, uint32_t, gcache::CacheStat>> curve,
@@ -34,7 +35,7 @@ void saveMRCToFile(
 void initializeNewClientInGhost(uint64_t client,
                                 ClientsGhostMap& clientsGhostMap) {
     clientsGhostMap[client] =
-        std::make_unique<GhostKvCache>(64, 64, 1024);
+        std::make_unique<GhostKvCache>(TICK, MIN_COUNT, MAX_COUNT);
     assert(clientsGhostMap[client] != nullptr);
 }
 
@@ -78,7 +79,8 @@ int main(int argc, char* argv[]) {
         try {
             auto req = parser(row);
             if (!(row_number % 1000000)) {
-                std::cout << "Processed " << row_number << " requests" << std::endl;
+                std::cout << "Processed " << row_number << " requests"
+                          << std::endl;
             }
 
             if (clientsGhostMap.find(req.client) == clientsGhostMap.end()) {
@@ -89,7 +91,7 @@ int main(int argc, char* argv[]) {
             clientsGhostMap[req.client]->access(req.key,
                                                 req.keySize + req.valSize);
         } catch (const std::runtime_error& e) {
-            std::cerr << "Skipped line " << row_number << " in trace ("
+            std::cerr << "skipped line " << row_number << " in trace ("
                       << e.what() << ")" << std::endl;
         }
 
@@ -98,16 +100,20 @@ int main(int argc, char* argv[]) {
 
     file.close();
 
-    std::cout << "processed " << row_number << " requests";
+    std::cout << "processed " << row_number << " requests" << std::endl;
 
     const std::string outdirpath("mrc");
     auto dirstat = fs::status(outdirpath);
     if (dirstat.type() == fs::file_type::not_found) {
         fs::create_directory(outdirpath);
+        std::cout << "created output directory " << outdirpath << std::endl;
     } else if (dirstat.type() != fs::file_type::directory) {
         std::cerr << "output directory \"" << outdirpath
-                  << "\" exists but is not a directory";
+                  << "\" exists but is not a directory" << std::endl;
         exit(1);
+    } else {
+        std::cout << "output directory " << outdirpath << " already exists"
+                  << std::endl;
     }
 
     for (auto& kv : clientsGhostMap) {
@@ -117,8 +123,10 @@ int main(int argc, char* argv[]) {
             // std::endl;
             continue;
         }
-        std::ofstream outfile(fs::path(outdirpath) /
-                              fs::path(std::to_string(kv.first)));
+        auto outpath =
+            fs::path(outdirpath) / fs::path(std::to_string(kv.first));
+        std::ofstream outfile(outpath);
+        std::cout << "writing report to " << outpath << std::endl;
         saveMRCToFile(curve, outfile);
     }
 
