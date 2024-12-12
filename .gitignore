@@ -1,4 +1,8 @@
-.vscode
+.vscode/*
+.idea/*
 a.out
 build/
 mrc/*
+main
+main.yml
+info.plist
