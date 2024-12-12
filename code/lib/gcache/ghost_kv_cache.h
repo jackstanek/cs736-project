@@ -40,8 +40,7 @@ class SampledGhostKvCache {
   void access(uint32_t key_hash, uint32_t kv_size,
               AccessMode mode = AccessMode::DEFAULT) {
     // only with certain number of leading zeros is sampled
-    if (key_hash >> (32 - SampleShift)) return;
-    std::cout << "key " << key_hash << " (size " << kv_size << ") accessed" << std::endl;
+    if (SampleShift > 0 && key_hash >> (32 - SampleShift)) return;
     auto h = ghost_cache.access_impl(key_hash, key_hash, mode);
     h->kv_size = kv_size;
   }
@@ -100,6 +99,7 @@ class SampledGhostKvCache {
       curr_size += h->kv_size;
       ++curr_count;
       if ((curr_count - ghost_cache.min_size) % ghost_cache.tick == 0) {
+        std::cout << "emplace count" << std::endl;
         curve.emplace_back(curr_count << SampleShift, curr_size << SampleShift,
                            ghost_cache.get_stat_shifted(curr_count));
       }

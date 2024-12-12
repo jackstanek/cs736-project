@@ -19,7 +19,7 @@ using ClientsGhostMap =
     std::unordered_map<uint64_t, std::unique_ptr<GhostKvCache>>;
 namespace fs = std::filesystem;
 
-const uint32_t TICK = 64, MIN_COUNT = 128, MAX_COUNT = 1024;
+const uint32_t TICK = 64 * 1024, MIN_COUNT = 64 * 1024, MAX_COUNT = 1024 * 1024;
 
 void saveMRCToFile(
     std::vector<std::tuple<uint32_t, uint32_t, gcache::CacheStat>> curve,
