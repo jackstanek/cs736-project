@@ -80,4 +80,6 @@ class MissRateCurve:
         for (p1, p2) in zip(self._curve, other._curve):
             error_sum += abs((p1.stat.hit_count / p1.stat.total_count) - (p2.stat.hit_count / p2.stat.total_count))
             data_points += 1
+        if error_sum == 0 and data_points == 0:
+            return 0
         return error_sum / data_points

@@ -44,11 +44,12 @@ def plot_all_mrc(args):
         print(f"{args.mrc}: no miss rate curve information found in directory")
 
 
-def plot_client_timeline(args, client_files):
+def plot_client_timeline(args, client_data):
+    client = client_data[0]
+    client_files = client_data[1]
     try:
         X = []
         Y = []
-
         prev_mrc = None
         for path in client_files:
             with open(path) as mrc_file:
@@ -56,14 +57,19 @@ def plot_client_timeline(args, client_files):
                 if prev_mrc == None:
                     prev_mrc = mrc
                     continue
-                mae = mrc.mean_absolute_error(prev_mrc)
+                mae_percent = mrc.mean_absolute_error(prev_mrc) * 100
                 prev_mrc = mrc
                 ts = int(os.path.basename(path).split("_")[1].split(".")[0])
                 X.append(ts)
-                Y.append(mae)
+                Y.append(mae_percent)
         X,Y = zip(*sorted(zip(X,Y), key=lambda x: x[0]))
 
         plt.plot(X, Y)
+        plt.title(f"Client {client} MAE Curve")
+        plt.xlabel("Timestamp")
+        plt.ylabel("MAE (%)")
+        ax = plt.gca()
+        ax.set_ylim(0,3)
         plt.show()
 
     except IsADirectoryError:
@@ -86,7 +92,7 @@ def get_client_files(args):
         files = glob.glob(os.path.join(args.mrc, f"{client}_*.txt"))
         client_files.append(files)
 
-    return client_files
+    return zip(clients, client_files)
 
 def main():
     parser = argparse.ArgumentParser()
