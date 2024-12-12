@@ -1,17 +1,15 @@
 import argparse
 import os
 import sys
+import glob
 
 import matplotlib.pyplot as plt
 from parsy import ParseError
 
-from plot.miss_rate_curve import MissRateCurve
+from miss_rate_curve import MissRateCurve
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("mrc")
-    args = parser.parse_args()
+def plot_all_mrc(args):
 
     if os.path.isdir(args.mrc):
         paths = [os.path.join(args.mrc, path) for path in os.listdir(args.mrc)]
@@ -44,6 +42,54 @@ def main():
         plt.show()
     else:
         print(f"{args.mrc}: no miss rate curve information found in directory")
+
+
+def plot_client_timeline(args, client_files):
+    try:
+        X = []
+        Y = []
+        for path in client_files:
+            with open(path) as mrc_file:
+                mrc = MissRateCurve.parse_miss_rate_curve(mrc_file.readlines())
+                ts = int(os.path.basename(path).split("_")[1].split(".")[0])
+                X.append(ts)
+                Y.append(mrc.mean_error())
+
+        plt.plot(X, Y)
+        plt.show()
+
+    except IsADirectoryError:
+        print(f"{path}: unexpected subdirectory in miss rate curve directory")
+    except ParseError as err:
+        print(f"{path}: parse error: {err}")
+
+
+
+def get_client_files(args):
+    clients = []
+    for path in os.listdir(args.mrc):
+        client = os.path.basename(path).split("_")[0]
+        if not client in clients:
+            clients.append(client)
+
+    client_files = []
+
+    for client in clients:
+        files = glob.glob(os.path.join(args.mrc, f"{client}_*.txt"))
+        client_files.append(files)
+
+    return client_files
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("mrc")
+    args = parser.parse_args()
+
+    # print_all_mrc(args)
+    client_files = get_client_files(args)
+    for client in client_files:
+        plot_client_timeline(args, client)
+        break
 
 if __name__ == "__main__":
     main()

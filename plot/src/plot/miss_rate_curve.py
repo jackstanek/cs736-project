@@ -72,3 +72,7 @@ class MissRateCurve:
         sizes = [pt.size for pt in self._curve]
         mrs = [pt.stat.miss_count / pt.stat.total_count for pt in self._curve]
         axs.plot(sizes, mrs)
+
+    def mean_error(self):
+        """Calculate the MEA"""
+        return 5
