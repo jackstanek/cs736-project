@@ -10,7 +10,8 @@ def _lexeme(prsr: parsy.Parser) -> parsy.Parser:
     return prsr.skip(parsy.regex(r"\s*"))
 
 
-_posint = parsy.digit.at_least(1).concat().map(int)
+_posint = parsy.digit.at_least(1).concat().map(int).desc("positive integer")
+_decimal = parsy.regex(r"[0-9]+(\.[0-9]+)?").map(float).desc("decimal number")
 
 
 @dataclass
@@ -22,7 +23,7 @@ class CacheStat:
 
     @classmethod
     def parse_miss_rate(cls, inp: str) -> "CacheStat":
-        hit_pct = _lexeme(parsy.regex(r"[0-9]+(\.[0-9]+)?%").desc("hit percentage"))
+        hit_pct = _lexeme(_decimal.skip(parsy.string("%"))).map(lambda n: n / 100)
 
         lparen = _lexeme(parsy.string("("))
         hit_count = _lexeme(_posint)
@@ -49,9 +50,10 @@ class MissRatePoint:
 
     @classmethod
     def parse_miss_rate_point(cls, inp: str) -> "MissRatePoint":
+        hit_ratio = _lexeme(_decimal)
         count = _lexeme(_posint)
         size = _lexeme(_posint)
-        (ct, sz), rest = parsy.seq(count, size).parse_partial(inp)
+        (_, ct, sz), rest = parsy.seq(hit_ratio, count, size).parse_partial(inp)
         stat = CacheStat.parse_miss_rate(rest)
         return cls(ct, sz, stat)
 
