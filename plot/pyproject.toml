@@ -1,0 +1,26 @@
+[project]
+name = "plot"
+version = "0.1.0"
+description = "Plotting tools for miss rate curves"
+authors = [
+    {name = "Jack Stanek", email = "jrstanek@wisc.edu"},
+    {name = "Simon Frisk", email = "simon.frisk@wisc.edu"},
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib>=3.9.3",
+    "parsy-stubs>=2.1.2",
+    "parsy>=2.1",
+]
+
+scripts = { plot = "plot.__main__:main"}
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.4",
+]

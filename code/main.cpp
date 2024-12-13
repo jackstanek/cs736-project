@@ -5,17 +5,26 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
-#include <gcache/ghost_kv_cache.h>
 #include <iostream>
 #include <memory>
 #include <ostream>
 #include <string>
 #include <utility>
 
+#include <gcache/ghost_kv_cache.h>
+
 #include "trace.hpp"
 
+// Time interval for MRC sampling
+#define TIME_DELTA 10
+// Cache configuration
+#define MIN_CACHE (64)
+#define MAX_CACHE (1024)
+#define CACHE_STEP 64
+#define SAMPLE 5
+#
 using mtcache::TraceReq;
-using GhostKvCache = gcache::SampledGhostKvCache<1>;
+using GhostKvCache = gcache::SampledGhostKvCache<SAMPLE>;
 using ClientsGhostMap =
     std::unordered_map<uint64_t, std::unique_ptr<GhostKvCache>>;
 namespace fs = std::filesystem;
@@ -23,7 +32,6 @@ namespace fs = std::filesystem;
 void saveMRCToFile(
     std::vector<std::tuple<uint32_t, uint32_t, gcache::CacheStat>> curve,
     std::ofstream& outstream) {
-
     for (auto& point : curve) {
         outstream << std::get<2>(point).get_hit_rate() << std::get<0>(point)
                   << " " << std::get<1>(point) << std::get<2>(point)
@@ -72,6 +80,7 @@ int main(int argc, char* argv[]) {
     csv::CSVReader reader(file);
 
     ClientsGhostMap clientsGhostMap;
+    int saveTs = 0;
 
     int row_number = 1;
     for (csv::CSVRow& row : reader) {
@@ -81,46 +90,32 @@ int main(int argc, char* argv[]) {
                 std::cout << "Processed " << row_number << " requests" << std::endl;
             }
 
-            if (clientsGhostMap.find(req.client) == clientsGhostMap.end()) {
+            // Save the MRC curves for each client with a certain time interval
+            if(req.timeStamp - saveTs > TIME_DELTA) {
+                saveTs = (req.timeStamp / TIME_DELTA) * TIME_DELTA;
+                std::cout << "TS " << saveTs << std::endl;
+                for (auto& kv : clientsGhostMap) {
+                    auto curve = kv.second->get_cache_stat_curve();
+                    auto outpath = fs::path("mrc") / fs::path(std::format("{}_{}", std::to_string(kv.first), std::to_string(saveTs)));
+                    std::ofstream outstream(outpath);
+                    saveMRCToFile(curve, outstream);
+                }
+            }
+
+            // printTraceReq(req);
+
+            if(clientsGhostMap.find(req.client) == clientsGhostMap.end()) {
                 initializeNewClientInGhost(req.client, clientsGhostMap);
             }
 
-            assert(clientsGhostMap[req.client] != nullptr);
-            clientsGhostMap[req.client]->access(req.key,
-                                                req.keySize + req.valSize);
+            clientsGhostMap[req.client]->access(req.key, req.keySize + req.valSize);
         } catch (const std::runtime_error& e) {
             std::cerr << "Skipped line " << row_number << " in trace ("
                       << e.what() << ")" << std::endl;
         }
-
-        row_number++;
     }
 
     file.close();
-
-    std::cout << "processed " << row_number << " requests";
-
-    const std::string outdirpath("mrc");
-    auto dirstat = fs::status(outdirpath);
-    if (dirstat.type() == fs::file_type::not_found) {
-        fs::create_directory(outdirpath);
-    } else if (dirstat.type() != fs::file_type::directory) {
-        std::cerr << "output directory \"" << outdirpath
-                  << "\" exists but is not a directory";
-        exit(1);
-    }
-
-    for (auto& kv : clientsGhostMap) {
-        auto curve = kv.second->get_cache_stat_curve();
-        if (curve.empty()) {
-            // std::cout << "client \"" << kv.first << "\" is empty" <<
-            // std::endl;
-            continue;
-        }
-        std::ofstream outfile(fs::path(outdirpath) /
-                              fs::path(std::to_string(kv.first)));
-        saveMRCToFile(curve, outfile);
-    }
 
     return 0;
 }
