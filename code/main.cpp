@@ -110,6 +110,7 @@ int main(int argc, char* argv[]) {
             std::cerr << "Skipped line " << row_number << " in trace ("
                       << e.what() << ")" << std::endl;
         }
+        row_number++;
     }
 
     file.close();

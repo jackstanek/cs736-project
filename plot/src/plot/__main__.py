@@ -6,11 +6,10 @@ import glob
 import matplotlib.pyplot as plt
 from parsy import ParseError
 
-from miss_rate_curve import MissRateCurve
+from plot.miss_rate_curve import MissRateCurve
 
 
 def plot_all_mrc(args):
-
     if os.path.isdir(args.mrc):
         paths = [os.path.join(args.mrc, path) for path in os.listdir(args.mrc)]
     elif os.path.isfile(args.mrc):
@@ -44,32 +43,33 @@ def plot_all_mrc(args):
         print(f"{args.mrc}: no miss rate curve information found in directory")
 
 
-def plot_client_timeline(args, client_data):
-    client = client_data[0]
-    client_files = client_data[1]
+def plot_client_timeline(client: str, client_files: list[str]):
+    """Plot a timeline for some client"""
     try:
         X = []
         Y = []
         prev_mrc = None
         for path in client_files:
             with open(path) as mrc_file:
-                mrc = MissRateCurve.parse_miss_rate_curve(mrc_file.readlines())
-                if prev_mrc == None:
+                mrc = MissRateCurve.parse_miss_rate_curve_file(mrc_file)
+                if prev_mrc is None:
                     prev_mrc = mrc
                     continue
                 mae_percent = mrc.mean_absolute_error(prev_mrc) * 100
                 prev_mrc = mrc
-                ts = int(os.path.basename(path).split("_")[1].split(".")[0])
+                ts = int(os.path.basename(path))
                 X.append(ts)
                 Y.append(mae_percent)
-        X,Y = zip(*sorted(zip(X,Y), key=lambda x: x[0]))
+        if not (X and Y):
+            return
+        X, Y = zip(*sorted(zip(X, Y), key=lambda x: x[0]))
 
         plt.plot(X, Y)
         plt.title(f"Client {client} MAE Curve")
         plt.xlabel("Timestamp")
         plt.ylabel("MAE (%)")
         ax = plt.gca()
-        ax.set_ylim(0,3)
+        ax.set_ylim(0, 3)
         plt.show()
 
     except IsADirectoryError:
@@ -78,21 +78,17 @@ def plot_client_timeline(args, client_data):
         print(f"{path}: parse error: {err}")
 
 
+def get_client_files(mrc_dir: str) -> dict[str, list[str]]:
+    client_files: dict[str, list[str]] = {}
+    for root, dirs, files in os.walk(mrc_dir):
+        if root == mrc_dir:
+            continue
+        client = os.path.basename(root)
+        client_files[client] = []
+        for filename in files:
+            client_files[client].append(os.path.join(root, filename))
+    return client_files
 
-def get_client_files(args):
-    clients = []
-    for path in os.listdir(args.mrc):
-        client = os.path.basename(path).split("_")[0]
-        if not client in clients:
-            clients.append(client)
-
-    client_files = []
-
-    for client in clients:
-        files = glob.glob(os.path.join(args.mrc, f"{client}_*.txt"))
-        client_files.append(files)
-
-    return zip(clients, client_files)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -100,9 +96,10 @@ def main():
     args = parser.parse_args()
 
     # print_all_mrc(args)
-    client_files = get_client_files(args)
-    for client in client_files:
-        plot_client_timeline(args, client)
+    client_files = get_client_files(args.mrc)
+    for client, client_files in client_files.items():
+        plot_client_timeline(client, client_files)
+
 
 if __name__ == "__main__":
     main()

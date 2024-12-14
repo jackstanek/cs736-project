@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from functools import cached_property
+import typing
 from typing import Iterable
 
 from matplotlib.axes import Axes
@@ -67,19 +68,26 @@ class MissRateCurve:
         """Parse a list of points into a miss rate curve"""
         return cls([MissRatePoint.parse_miss_rate_point(ln) for ln in lines])
 
+    @classmethod
+    def parse_miss_rate_curve_file(cls, curve_file: typing.TextIO) -> "MissRateCurve":
+        return cls.parse_miss_rate_curve(curve_file.readlines())
+
     def plot(self, axs: Axes):
         """Plot a miss rate curve with matplotlib"""
         sizes = [pt.size for pt in self._curve]
         mrs = [pt.stat.miss_count / pt.stat.total_count for pt in self._curve]
         axs.plot(sizes, mrs)
 
-    def mean_absolute_error(self, other):
+    def mean_absolute_error(self, other) -> float:
         """Calculate the MEA"""
         error_sum = 0
         data_points = 0
-        for (p1, p2) in zip(self._curve, other._curve):
-            error_sum += abs((p1.stat.hit_count / p1.stat.total_count) - (p2.stat.hit_count / p2.stat.total_count))
+        for p1, p2 in zip(self._curve, other._curve):
+            error_sum += abs(
+                (p1.stat.hit_count / p1.stat.total_count)
+                - (p2.stat.hit_count / p2.stat.total_count)
+            )
             data_points += 1
-        if error_sum == 0 and data_points == 0:
+        if not (error_sum or data_points):
             return 0
         return error_sum / data_points
