@@ -2,6 +2,8 @@
 #include <cstdint>
 #include <string_view>
 
+#include <gcache/stat.h>
+
 #include "ghost_cache.h"
 
 namespace gcache {

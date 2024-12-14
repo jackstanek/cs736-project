@@ -3,6 +3,7 @@
 a.out
 build/
 mrc/*
+result
 main
 main.yml
 info.plist
