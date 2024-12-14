@@ -69,12 +69,13 @@ int main(int argc, char* argv[]) {
                   << std::endl;
         exit(1);
     }
-    csv::CSVReader reader(file);
 
     ClientsGhostMap clientsGhostMap;
     int saveTs = 0;
 
     int row_number = 1;
+
+    csv::CSVReader reader(file);
     for (csv::CSVRow& row : reader) {
         try {
             auto req = parser(row);
@@ -89,10 +90,12 @@ int main(int argc, char* argv[]) {
                 std::cout << "TS " << saveTs << std::endl;
                 for (auto& kv : clientsGhostMap) {
                     auto curve = kv.second.get_cache_stat_curve();
-                    auto outpath =
-                        fs::path("mrc") /
-                        fs::path(std::format("{}_{}", std::to_string(kv.first),
-                                             std::to_string(saveTs)));
+                    auto client = std::to_string(kv.first);
+
+                    auto outdir = fs::path("mrc") / fs::path(client);
+                    fs::create_directories(outdir);
+
+                    auto outpath = outdir / std::to_string(saveTs);
                     std::ofstream outstream(outpath);
                     saveMRCToFile(curve, outstream);
                 }

@@ -1,5 +1,5 @@
 build:
-    make -C build/
+    make -C build/ -j$(nproc)
 
 clean:
     make -C build/ clean
