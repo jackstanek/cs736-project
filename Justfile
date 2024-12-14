@@ -10,5 +10,5 @@ debug:
 release:
     cmake -S . -B build/ -DCMAKE_BUILD_TYPE=Release --fresh
 
-run_tw:
-    ./build/bin/mtcache tw ./data/cluster017
+run twfb path:
+    ./build/bin/mtcache {{twfb}} {{path}}
