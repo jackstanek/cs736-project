@@ -9,3 +9,6 @@ debug:
 
 release:
     cmake -S . -B build/ -DCMAKE_BUILD_TYPE=Release --fresh
+
+run_tw:
+    ./build/bin/mtcache tw ./data/cluster017
