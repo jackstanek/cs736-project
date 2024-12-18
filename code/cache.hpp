@@ -77,7 +77,7 @@ template <class Cache> class TenantCache {
         for (auto kv : timed_miss_rate_curves) {
             out_obj["mrcs"][std::to_string(kv.first)] = miss_rate_curve_as_strings(kv.second);
         }
-        outfile << out_obj.dump(4) << std::endl;
+        outfile << out_obj.dump() << std::endl;
     }
 
     MissRateCurve get_cache_stat_curve() const {
