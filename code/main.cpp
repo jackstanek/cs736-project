@@ -2,7 +2,6 @@
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
-#include <format>
 #include <fstream>
 #include <iostream>
 #include <ostream>
@@ -71,11 +70,10 @@ int main(int argc, char* argv[]) {
     }
 
     ClientsGhostMap clientsGhostMap;
-    int saveTs = 0;
-
-    int row_number = 1;
-
+    uint64_t saveTs = 0;
+    uint64_t row_number = 1;
     csv::CSVReader reader(file);
+
     for (csv::CSVRow& row : reader) {
         try {
             auto req = parser(row);
@@ -89,15 +87,7 @@ int main(int argc, char* argv[]) {
                 saveTs = (req.timeStamp / TIME_DELTA) * TIME_DELTA;
                 std::cout << "TS " << saveTs << std::endl;
                 for (auto& kv : clientsGhostMap) {
-                    auto curve = kv.second.get_cache_stat_curve();
-                    auto client = std::to_string(kv.first);
-
-                    auto outdir = fs::path("mrc") / fs::path(client);
-                    fs::create_directories(outdir);
-
-                    auto outpath = outdir / std::to_string(saveTs);
-                    std::ofstream outstream(outpath);
-                    saveMRCToFile(curve, outstream);
+                    kv.second.checkpoint_stats(saveTs);
                 }
             }
 
@@ -110,6 +100,18 @@ int main(int argc, char* argv[]) {
             std::cerr << "Skipped line " << row_number << " in trace ("
                       << e.what() << ")" << std::endl;
         }
+        row_number++;
+    }
+
+    auto outdir = fs::path("mrc");
+    fs::create_directory(outdir);
+    for (auto& kv : clientsGhostMap) {
+        kv.second.finalize();
+
+        auto client = std::to_string(kv.first);
+        auto outpath = outdir / client;
+        std::ofstream outstream(outpath);
+        kv.second.dump_stats(client, outstream);
     }
 
     file.close();

@@ -1,16 +1,17 @@
 import argparse
+import json
 import os
 import sys
-import glob
+import random
 
 import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
 from parsy import ParseError
 
-from miss_rate_curve import MissRateCurve
+from plot.miss_rate_curve import MissRateCurve
 
 
 def plot_all_mrc(args):
-
     if os.path.isdir(args.mrc):
         paths = [os.path.join(args.mrc, path) for path in os.listdir(args.mrc)]
     elif os.path.isfile(args.mrc):
@@ -44,65 +45,77 @@ def plot_all_mrc(args):
         print(f"{args.mrc}: no miss rate curve information found in directory")
 
 
-def plot_client_timeline(args, client_data):
-    client = client_data[0]
-    client_files = client_data[1]
+def plot_client_timeline(client_name: str, client_data: dict):
     try:
-        X = []
-        Y = []
+        xs: list[float] = []
+        ys: list[float] = []
         prev_mrc = None
-        for path in client_files:
-            with open(path) as mrc_file:
-                mrc = MissRateCurve.parse_miss_rate_curve(mrc_file.readlines())
-                if prev_mrc == None:
-                    prev_mrc = mrc
-                    continue
-                mae_percent = mrc.mean_absolute_error(prev_mrc) * 100
+        mrcs = client_data["mrcs"]
+        for ts, mrc_lines in mrcs.items():
+            mrc = MissRateCurve.parse_miss_rate_curve(mrc_lines)
+            if prev_mrc is None:
                 prev_mrc = mrc
-                ts = int(os.path.basename(path).split("_")[1].split(".")[0])
-                X.append(ts)
-                Y.append(mae_percent)
-        X,Y = zip(*sorted(zip(X,Y), key=lambda x: x[0]))
+                continue
+            mae_percent = mrc.mean_absolute_error(prev_mrc) * 100
+            prev_mrc = mrc
+            xs.append(float(ts))
+            ys.append(mae_percent)
+        xs, ys = zip(*sorted(zip(xs, ys), key=lambda x: x[0]))
 
-        plt.plot(X, Y)
-        plt.title(f"Client {client} MAE Curve")
+        plt.plot(xs, ys)
+        plt.title(f"Client {client_name} MAE Curve")
         plt.xlabel("Timestamp")
         plt.ylabel("MAE (%)")
         ax = plt.gca()
-        ax.set_ylim(0,3)
+        ax.set_ylim(0, 3)
         plt.show()
 
-    except IsADirectoryError:
-        print(f"{path}: unexpected subdirectory in miss rate curve directory")
     except ParseError as err:
-        print(f"{path}: parse error: {err}")
+        print(f"{client_name}: parse error: {err}")
 
 
+def plot_start_end(axs: Axes, start: int, end: int, n: int):
+    ys = [n, n]
+    xs = [start, end]
+    axs.plot(xs, ys)
 
-def get_client_files(args):
-    clients = []
-    for path in os.listdir(args.mrc):
-        client = os.path.basename(path).split("_")[0]
-        if not client in clients:
-            clients.append(client)
-
-    client_files = []
-
-    for client in clients:
-        files = glob.glob(os.path.join(args.mrc, f"{client}_*.txt"))
-        client_files.append(files)
-
-    return zip(clients, client_files)
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("mrc")
+    parser.add_argument("--start-end", action="store_true")
     args = parser.parse_args()
 
     # print_all_mrc(args)
-    client_files = get_client_files(args)
-    for client in client_files:
-        plot_client_timeline(args, client)
+    client_file_paths = {
+        filepath: os.path.join(args.mrc, filepath) for filepath in os.listdir(args.mrc)
+    }
+
+    if args.start_end:
+        fig, axs = plt.subplots()
+        client_datas = []
+        for _, client_file_path in client_file_paths.items():
+            with open(client_file_path) as client_file:
+                client_datas.append(json.load(client_file))
+
+        start_ends = random.sample(
+            sorted(
+                ((d["first_ts"], d["last_ts"]) for d in client_datas),
+                key=lambda x: int(x[0]),
+            ),
+            k=25,
+        )
+        for n, (start, end) in enumerate(start_ends):
+            plot_start_end(axs, int(start), int(end), n)
+
+        plt.show()
+        return 0
+
+    for client_name, client_file_path in client_file_paths.items():
+        with open(client_file_path) as client_file:
+            client_data = json.load(client_file)
+        plot_client_timeline(client_name, client_data)
+
 
 if __name__ == "__main__":
     main()
