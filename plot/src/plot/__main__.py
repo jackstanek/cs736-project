@@ -6,43 +6,40 @@ import random
 
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
+from matplotlib.ticker import LogFormatter
 from parsy import ParseError
 
-from plot.miss_rate_curve import MissRateCurve
+from miss_rate_curve import MissRateCurve
 
 
-def plot_all_mrc(args):
-    if os.path.isdir(args.mrc):
-        paths = [os.path.join(args.mrc, path) for path in os.listdir(args.mrc)]
-    elif os.path.isfile(args.mrc):
-        paths = [args.mrc]
-    else:
-        print(f"{args.mrc}: no such file or directory")
-        sys.exit(1)
-
-    plotted = 0
+def plot_mrc(client_data, client_name):
     fig, axs = plt.subplots()
-    for path in paths:
-        try:
-            with open(path) as mrc_file:
-                mrc = MissRateCurve.parse_miss_rate_curve(mrc_file.readlines())
-                if not mrc:
-                    continue
+    prev = 0
+    last = int(client_data["last_ts"])
+    first = int(client_data["first_ts"])
 
-                mrc.plot(axs)
-                plotted += 1
+    for timestamp, mrc_lines in client_data["mrcs"].items():
+        ts = int(timestamp)
+        if ts - prev < 3*3600 or ts < 12*3600:
+            continue
+        prev = ts
+        mrc = MissRateCurve.parse_miss_rate_curve(mrc_lines)
+        if not mrc:
+            continue
 
-        except IsADirectoryError:
-            print(f"{path}: unexpected subdirectory in miss rate curve directory")
-            sys.exit(1)
-        except ParseError as err:
-            print(f"{path}: parse error: {err}")
-            sys.exit(1)
+        # Earlier timestamps are more blue, later and more red
+        red = max(min((ts - first) / (last - first), 1), 0)
+        blue = max(min((last - ts + first) / (last - first), 1), 0)
 
-    if plotted:
-        plt.show()
-    else:
-        print(f"{args.mrc}: no miss rate curve information found in directory")
+        mrc.plot(axs, color=(red,0,blue,1))
+
+    plt.title(f"Client {client_name} MRC Curves")
+    plt.xlabel("Cache Size (keys)")
+    plt.ylabel("Miss Rate")
+    axs.set_xscale('log', base=2)
+    axs.set_yscale('linear')
+    axs.xaxis.set_major_formatter(LogFormatter(base=2.0))
+    plt.show()
 
 
 def plot_client_timeline(axs: Axes, client_name: str, client_data: dict):
@@ -51,12 +48,24 @@ def plot_client_timeline(axs: Axes, client_name: str, client_data: dict):
         ys: list[float] = []
         prev_mrc = None
         mrcs = client_data["mrcs"]
-        for ts, mrc_lines in mrcs.items():
+        prev = 0
+
+        it = iter(mrcs.items())
+        first = next(it)
+        second = next(it)
+        time_delta_seconds = int(second[0]) - int(first[0])
+
+        for timestamp, mrc_lines in mrcs.items():
+            ts = int(timestamp)
+            if ts - prev < 3 * 3600 or ts < 12 * 3600:
+                continue
+            prev = ts
+
             mrc = MissRateCurve.parse_miss_rate_curve(mrc_lines)
             if prev_mrc is None:
                 prev_mrc = mrc
                 continue
-            mae_percent = mrc.mean_absolute_error(prev_mrc) * 100
+            mae_percent = mrc.mean_absolute_error(prev_mrc) * 100 / time_delta_seconds
             prev_mrc = mrc
             xs.append(float(ts))
             ys.append(mae_percent)
@@ -65,9 +74,7 @@ def plot_client_timeline(axs: Axes, client_name: str, client_data: dict):
         plt.plot(xs, ys)
         plt.title(f"Client {client_name} MAE Curve")
         plt.xlabel("Timestamp")
-        plt.ylabel("MAE (%)")
-        ax = plt.gca()
-        ax.set_ylim(0, 3)
+        plt.ylabel("MAE (%/s)")
         plt.show()
 
     except ParseError as err:
@@ -95,13 +102,12 @@ def plot_lifetimes_distribution(axs: Axes, client_data: dict, bins: int):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("plot", choices=["firstlast", "lifetimedist", "mae"])
+    parser.add_argument("plot", choices=["firstlast", "lifetimedist", "mae", "mrc"])
     parser.add_argument("--sample-size", type=int)
     parser.add_argument("--hist-bins", type=int, default=25)
     parser.add_argument("mrc")
     args = parser.parse_args()
 
-    # print_all_mrc(args)
     client_file_paths = {
         filepath: os.path.join(args.mrc, filepath) for filepath in os.listdir(args.mrc)
     }
@@ -134,6 +140,10 @@ def main():
     elif args.plot == "lifetimedist":
         plot_lifetimes_distribution(axs, client_datas, args.hist_bins)
         plt.show()
+
+    elif args.plot == "mrc":
+        for client_name, client_data in client_datas.items():
+            plot_mrc(client_data, client_name)
 
     else:
         for client_name, client_data in client_datas.items():

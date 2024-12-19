@@ -66,11 +66,11 @@ class MissRateCurve:
         """Parse a list of points into a miss rate curve"""
         return cls([MissRatePoint.parse_miss_rate_point(ln) for ln in lines])
 
-    def plot(self, axs: Axes):
+    def plot(self, axs: Axes, color):
         """Plot a miss rate curve with matplotlib"""
-        sizes = [pt.size for pt in self._curve]
+        sizes = [pt.count for pt in self._curve]
         mrs = [pt.stat.miss_count / pt.stat.total_count for pt in self._curve]
-        axs.plot(sizes, mrs)
+        axs.plot(sizes, mrs, color=color)
 
     def mean_absolute_error(self, other: "MissRateCurve") -> float:
         """Calculate the MAE"""
