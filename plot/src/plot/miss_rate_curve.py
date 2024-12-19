@@ -50,10 +50,9 @@ class MissRatePoint:
 
     @classmethod
     def parse_miss_rate_point(cls, inp: str) -> "MissRatePoint":
-        hit_ratio = _lexeme(_decimal)
         count = _lexeme(_posint)
         size = _lexeme(_posint)
-        (_, ct, sz), rest = parsy.seq(hit_ratio, count, size).parse_partial(inp)
+        (ct, sz), rest = parsy.seq(count, size).parse_partial(inp)
         stat = CacheStat.parse_miss_rate(rest)
         return cls(ct, sz, stat)
 
@@ -73,13 +72,13 @@ class MissRateCurve:
         mrs = [pt.stat.miss_count / pt.stat.total_count for pt in self._curve]
         axs.plot(sizes, mrs)
 
-    def mean_absolute_error(self, other):
-        """Calculate the MEA"""
-        error_sum = 0
+    def mean_absolute_error(self, other: "MissRateCurve") -> float:
+        """Calculate the MAE"""
+        error_sum = 0.0
         data_points = 0
         for (p1, p2) in zip(self._curve, other._curve):
             error_sum += abs((p1.stat.hit_count / p1.stat.total_count) - (p2.stat.hit_count / p2.stat.total_count))
             data_points += 1
-        if error_sum == 0 and data_points == 0:
+        if not (error_sum or data_points):
             return 0
         return error_sum / data_points

@@ -45,7 +45,7 @@ def plot_all_mrc(args):
         print(f"{args.mrc}: no miss rate curve information found in directory")
 
 
-def plot_client_timeline(client_name: str, client_data: dict):
+def plot_client_timeline(axs: Axes, client_name: str, client_data: dict):
     try:
         xs: list[float] = []
         ys: list[float] = []
@@ -74,47 +74,71 @@ def plot_client_timeline(client_name: str, client_data: dict):
         print(f"{client_name}: parse error: {err}")
 
 
-def plot_start_end(axs: Axes, start: int, end: int, n: int):
+def plot_first_last(axs: Axes, first: int, last: int, n: int):
     ys = [n, n]
-    xs = [start, end]
+    xs = [first / (60 * 60), last / (60 * 60)]
+    axs.set_xlabel("Time (hrs)")
+    axs.set_ylabel("Client")
     axs.plot(xs, ys)
+
+
+def plot_lifetimes_distribution(axs: Axes, client_data: dict, bins: int):
+    """Plot a histogram of the lifetimes of each client"""
+    lifetimes = [
+        (int(d["last_ts"]) - int(d["first_ts"])) / (60 * 60)
+        for d in client_data.values()
+    ]
+    axs.set_xlabel("Lifetime of cache client (hrs)")
+    axs.set_ylabel("Count")
+    axs.hist(lifetimes, bins=bins)
 
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("plot", choices=["firstlast", "lifetimedist", "mae"])
+    parser.add_argument("--sample-size", type=int)
+    parser.add_argument("--hist-bins", type=int, default=25)
     parser.add_argument("mrc")
-    parser.add_argument("--start-end", action="store_true")
     args = parser.parse_args()
 
     # print_all_mrc(args)
     client_file_paths = {
         filepath: os.path.join(args.mrc, filepath) for filepath in os.listdir(args.mrc)
     }
-
-    if args.start_end:
-        fig, axs = plt.subplots()
-        client_datas = []
-        for _, client_file_path in client_file_paths.items():
-            with open(client_file_path) as client_file:
-                client_datas.append(json.load(client_file))
-
-        start_ends = random.sample(
-            sorted(
-                ((d["first_ts"], d["last_ts"]) for d in client_datas),
-                key=lambda x: int(x[0]),
-            ),
-            k=25,
+    client_datas = {}
+    if args.sample_size:
+        client_file_paths = dict(
+            random.sample(list(client_file_paths.items()), k=args.sample_size)
         )
-        for n, (start, end) in enumerate(start_ends):
-            plot_start_end(axs, int(start), int(end), n)
+
+    for client, client_file_path in client_file_paths.items():
+        with open(client_file_path) as client_file:
+            client_datas[client] = json.load(client_file)
+
+    fig, axs = plt.subplots()
+    if args.plot == "firstlast":
+        if not args.sample_size:
+            print("need a sample size with firstlast plot")
+            return 1
+
+        start_ends = sorted(
+            ((d["first_ts"], d["last_ts"]) for d in client_datas.values()),
+            key=lambda x: int(x[0]),
+        )
+        for n, (first, last) in enumerate(start_ends):
+            plot_first_last(axs, int(first), int(last), n)
 
         plt.show()
         return 0
 
-    for client_name, client_file_path in client_file_paths.items():
-        with open(client_file_path) as client_file:
-            client_data = json.load(client_file)
-        plot_client_timeline(client_name, client_data)
+    elif args.plot == "lifetimedist":
+        plot_lifetimes_distribution(axs, client_datas, args.hist_bins)
+        plt.show()
+
+    else:
+        for client_name, client_data in client_datas.items():
+            print(f'plotting {client_name}')
+            plot_client_timeline(axs, client_name, client_data)
 
 
 if __name__ == "__main__":
