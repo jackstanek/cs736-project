@@ -44,6 +44,8 @@ template <class Cache> class TenantCache {
     TenantCache<Cache>(uint32_t tick, uint32_t min_count, uint32_t max_count)
         : cache(std::make_unique<Cache>(tick, min_count, max_count)),
           is_finalized(false) {}
+    TenantCache<Cache>(const TenantCache<Cache>&) = delete;
+    void operator=(const TenantCache<Cache>&) = delete;
 
     void access(const TraceReq& req) {
         cache->access(req.key, req.keySize + req.valSize);
@@ -66,7 +68,7 @@ template <class Cache> class TenantCache {
         is_finalized = true;
     }
 
-    void dump_stats(const std::string& client, std::ofstream& outfile) const {
+    void dump_stats(std::ofstream& outfile) const {
         using json = nlohmann::json;
         assert(is_finalized);
 

@@ -13,5 +13,8 @@ release:
 run twfb path:
     ./build/bin/mtcache {{twfb}} {{path}}
 
+plot_firstlast:
+    uv --project=plot/ run plot --sample-size=20 firstlast ./mrc
+
 pytest:
     uv --project=plot/ run pytest

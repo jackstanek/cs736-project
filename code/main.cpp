@@ -14,7 +14,7 @@
 #include "trace.hpp"
 
 // Time interval for MRC sampling
-#define TIME_DELTA 10
+#define TIME_DELTA 60
 // Cache configuration
 #define MIN_CACHE (64)
 #define MAX_CACHE (1024)
@@ -22,7 +22,7 @@
 #define SAMPLE 5
 
 using mtcache::TraceReq, mtcache::TenantCache;
-using GhostKvCache = gcache::SampledGhostKvCache<0>;
+using GhostKvCache = gcache::SampledGhostKvCache<5>;
 using ClientsGhostMap = std::unordered_map<uint64_t, TenantCache<GhostKvCache>>;
 namespace fs = std::filesystem;
 
@@ -92,8 +92,8 @@ int main(int argc, char* argv[]) {
 
             // printTraceReq(req);
 
-            auto tenant_cache = clientsGhostMap.try_emplace(
-                req.client, TenantCache<GhostKvCache>(64, 64, 1024));
+            auto tenant_cache =
+                clientsGhostMap.try_emplace(req.client, CACHE_STEP, MIN_CACHE, MAX_CACHE);
             tenant_cache.first->second.access(req);
         } catch (const std::runtime_error& e) {
             std::cerr << "Skipped line " << row_number << " in trace ("
@@ -110,7 +110,7 @@ int main(int argc, char* argv[]) {
         auto client = std::to_string(kv.first);
         auto outpath = outdir / client;
         std::ofstream outstream(outpath);
-        kv.second.dump_stats(client, outstream);
+        kv.second.dump_stats(outstream);
     }
 
     file.close();

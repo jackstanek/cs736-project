@@ -9,6 +9,7 @@ from matplotlib.axes import Axes
 from parsy import ParseError
 
 from plot.miss_rate_curve import MissRateCurve
+from plot.json import parse_fast
 
 
 def plot_all_mrc(args):
@@ -60,14 +61,14 @@ def plot_client_timeline(axs: Axes, client_name: str, client_data: dict):
             prev_mrc = mrc
             xs.append(float(ts))
             ys.append(mae_percent)
-        xs, ys = zip(*sorted(zip(xs, ys), key=lambda x: x[0]))
+        xs, ys = tuple(list(z) for z in zip(*sorted(zip(xs, ys), key=lambda x: x[0])))
 
         plt.plot(xs, ys)
         plt.title(f"Client {client_name} MAE Curve")
         plt.xlabel("Timestamp")
         plt.ylabel("MAE (%)")
-        ax = plt.gca()
-        ax.set_ylim(0, 3)
+        # ax = plt.gca()
+        # ax.set_ylim(0, 3)
         plt.show()
 
     except ParseError as err:
@@ -93,6 +94,22 @@ def plot_lifetimes_distribution(axs: Axes, client_data: dict, bins: int):
     axs.hist(lifetimes, bins=bins)
 
 
+def get_all_mrcs(client_file_paths: dict[str, str]) -> dict:
+    client_datas = {}
+    for client, client_file_path in client_file_paths.items():
+        with open(client_file_path) as client_file:
+            client_datas[client] = json.load(client_file)
+    return client_datas
+
+
+def get_all_first_last(client_file_paths: dict[str, str]) -> dict:
+    client_datas = {}
+    for client, client_file_path in client_file_paths.items():
+        with open(client_file_path) as client_file:
+            client_datas[client] = parse_fast(client_file)
+    return client_datas
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("plot", choices=["firstlast", "lifetimedist", "mae"])
@@ -105,25 +122,21 @@ def main():
     client_file_paths = {
         filepath: os.path.join(args.mrc, filepath) for filepath in os.listdir(args.mrc)
     }
-    client_datas = {}
     if args.sample_size:
         client_file_paths = dict(
             random.sample(list(client_file_paths.items()), k=args.sample_size)
         )
 
-    for client, client_file_path in client_file_paths.items():
-        with open(client_file_path) as client_file:
-            client_datas[client] = json.load(client_file)
 
     fig, axs = plt.subplots()
     if args.plot == "firstlast":
+        client_datas = get_all_first_last(client_file_paths)
         if not args.sample_size:
             print("need a sample size with firstlast plot")
             return 1
 
         start_ends = sorted(
             ((d["first_ts"], d["last_ts"]) for d in client_datas.values()),
-            key=lambda x: int(x[0]),
         )
         for n, (first, last) in enumerate(start_ends):
             plot_first_last(axs, int(first), int(last), n)
@@ -137,7 +150,7 @@ def main():
 
     else:
         for client_name, client_data in client_datas.items():
-            print(f'plotting {client_name}')
+            print(f"plotting {client_name}")
             plot_client_timeline(axs, client_name, client_data)
 
 
