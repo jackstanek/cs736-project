@@ -53,13 +53,15 @@ def plot_client_timeline(axs: Axes, client_name: str, client_data: dict):
         prev_mrc = None
         mrcs = client_data["mrcs"]
         for ts, mrc_lines in mrcs.items():
+            if random.random() < 0.95:
+                continue
             mrc = MissRateCurve.parse_miss_rate_curve(mrc_lines)
             if prev_mrc is None:
                 prev_mrc = mrc
                 continue
             mae_percent = mrc.mean_absolute_error(prev_mrc) * 100
             prev_mrc = mrc
-            xs.append(float(ts))
+            xs.append(ts)
             ys.append(mae_percent)
         xs, ys = tuple(list(z) for z in zip(*sorted(zip(xs, ys), key=lambda x: x[0])))
 
@@ -142,13 +144,14 @@ def main():
             plot_first_last(axs, int(first), int(last), n)
 
         plt.show()
-        return 0
 
     elif args.plot == "lifetimedist":
+        client_datas = get_all_first_last(client_file_paths)
         plot_lifetimes_distribution(axs, client_datas, args.hist_bins)
         plt.show()
 
     else:
+        client_datas = get_all_mrcs(client_file_paths)
         for client_name, client_data in client_datas.items():
             print(f"plotting {client_name}")
             plot_client_timeline(axs, client_name, client_data)
