@@ -12,3 +12,6 @@ release:
 
 run twfb path:
     ./build/bin/mtcache {{twfb}} {{path}}
+
+pytest:
+    uv --project=plot/ run pytest

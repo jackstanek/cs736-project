@@ -33,9 +33,9 @@ template <class Cache> class TenantCache {
         std::vector<std::string> curve_strs;
         for (auto& point : curve) {
             std::ostringstream oss;
-            oss << std::get<2>(point).get_hit_rate() << std::get<0>(point)
-                << " " << std::get<1>(point) << std::get<2>(point);
-            curve_strs.emplace_back(oss.str());
+            oss << std::get<0>(point) << " " << std::get<1>(point)
+                << std::get<2>(point);
+            curve_strs.emplace_back(oss.view());
         }
         return curve_strs;
     }
@@ -75,7 +75,8 @@ template <class Cache> class TenantCache {
         out_obj["last_ts"] = *last_ts;
         out_obj["mrcs"] = json::object();
         for (auto kv : timed_miss_rate_curves) {
-            out_obj["mrcs"][std::to_string(kv.first)] = miss_rate_curve_as_strings(kv.second);
+            out_obj["mrcs"][std::to_string(kv.first)] =
+                miss_rate_curve_as_strings(kv.second);
         }
         outfile << out_obj.dump() << std::endl;
     }

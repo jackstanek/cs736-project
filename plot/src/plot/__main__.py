@@ -137,7 +137,8 @@ def main():
 
     else:
         for client_name, client_data in client_datas.items():
-            plot_client_timeline(client_name, client_data)
+            print(f'plotting {client_name}')
+            plot_client_timeline(axs, client_name, client_data)
 
 
 if __name__ == "__main__":

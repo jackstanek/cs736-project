@@ -9,8 +9,8 @@ _parsing_test_cases = [
         MissRatePoint(65536, 79889888, CacheStat(5973, 25001)),
     ),
     (
-        "131072 154146720 20.2% (6253/30974)",
-        MissRatePoint(131072, 154146720, CacheStat(6253, 24721)),
+        "0113 154146720 20.2% (6253/30974)",
+        MissRatePoint(113, 154146720, CacheStat(6253, 24721)),
     ),
 ]
 
